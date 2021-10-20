@@ -34,10 +34,11 @@ func dataSourceProcessStart() *schema.Resource {
 
 func resourceProcessStart() *schema.Resource {
 	return &schema.Resource{
+		ReadContext: noneContextAction,
 		CreateContext: func(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 			return runProcessStart("resource", ctx, data, i)
 		},
-		DeleteContext: processResourceDeleteFunc,
+		DeleteContext: noneContextAction,
 		Schema:        processStartSchema,
 	}
 }

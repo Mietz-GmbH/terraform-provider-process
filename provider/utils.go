@@ -209,7 +209,7 @@ func copyInputOutput(d *schema.ResourceData) error {
 
 type PhasedContextFunc func(string, context.Context, *schema.ResourceData, interface{}) diag.Diagnostics
 
-func processResourceDeleteFunc(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics {
+func noneContextAction(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	return diag.Diagnostics{}
 }
 

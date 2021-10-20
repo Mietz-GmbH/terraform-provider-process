@@ -68,8 +68,9 @@ func dataSourceProcessRun() *schema.Resource {
 
 func resourceProcessRun() *schema.Resource {
 	return &schema.Resource{
+		ReadContext:   noneContextAction,
 		CreateContext: runProcessRun,
-		DeleteContext: processResourceDeleteFunc,
+		DeleteContext: noneContextAction,
 		Schema:        processRunSchema,
 	}
 }

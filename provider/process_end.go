@@ -41,10 +41,11 @@ func dataSourceProcessEnd() *schema.Resource {
 
 func resourceProcessEnd() *schema.Resource {
 	return &schema.Resource{
+		ReadContext: noneContextAction,
 		CreateContext: func(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
 			return runProcessEnd("resource", ctx, data, i)
 		},
-		DeleteContext: processResourceDeleteFunc,
+		DeleteContext: noneContextAction,
 		Schema:        processEndSchema,
 	}
 }
