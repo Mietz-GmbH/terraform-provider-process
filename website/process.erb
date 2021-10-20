@@ -1,0 +1,31 @@
+<% wrap_layout :inner do %>
+  <% content_for :sidebar do %>
+    <div class="docs-sidebar hidden-print affix-top" role="complementary">
+      <ul class="nav docs-sidenav">
+        <li<%= sidebar_current("docs-home") %>>
+          <a href="/docs/providers/index.html">All Providers</a>
+        </li>
+
+        <li<%= sidebar_current("docs-process-index") %>>
+          <a href="/docs/providers/process/index.html">Process Provider</a>
+        </li>
+
+        <li<%= sidebar_current("docs-process-resource") %>>
+          <a href="#">Resources</a>
+          <ul class="nav nav-visible">
+            <li<%= sidebar_current("docs-process-process_run") %>>
+                <a href="/docs/providers/process/r/process_run.html">process_run</a>
+            </li>
+            <li<%= sidebar_current("docs-process-process_start") %>>
+                <a href="/docs/providers/process/r/process_start.html">process_start</a>
+            </li>
+            <li<%= sidebar_current("docs-process-process_end") %>>
+                <a href="/docs/providers/process/r/process_end.html">process_end</a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  <% end %>
+  <%= yield %>
+<% end %>
