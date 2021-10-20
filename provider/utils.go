@@ -1,7 +1,10 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -13,16 +16,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-var phasedSchema = map[string]*schema.Schema{
-	"phase": {
-		Description:  "Defines the phase in which the command should be executed",
-		Type:         schema.TypeString,
-		ValidateFunc: validation.StringInSlice([]string{"plan", "apply"}, false),
-		Required:     true,
-		ForceNew:     true,
-	},
-}
 
 var commandSchema = map[string]*schema.Schema{
 	"triggers": {
@@ -83,6 +76,16 @@ var commandSchema = map[string]*schema.Schema{
 					Type:        schema.TypeString,
 					Optional:    true,
 				},
+				"stdin": {
+					Description: "When given, this data will be piped into the stdin of the process",
+					Type:        schema.TypeString,
+					Optional:    true,
+				},
+				"stdin_base64": {
+					Description: "When given, this data will be decoded as base64 and be piped into the stdin of the process",
+					Type:        schema.TypeString,
+					Optional:    true,
+				},
 			},
 		},
 	},
@@ -114,10 +117,10 @@ func selectCommandConfiguration(d *schema.ResourceData) map[string]interface{} {
 	return nil
 }
 
-func createCommand(d *schema.ResourceData) *exec.Cmd {
+func createCommand(d *schema.ResourceData) (*exec.Cmd, error) {
 	configuration := selectCommandConfiguration(d)
 	if configuration == nil {
-		return nil
+		return nil, nil
 	}
 
 	interpreter := configuration["interpreter"].([]interface{})
@@ -160,9 +163,32 @@ func createCommand(d *schema.ResourceData) *exec.Cmd {
 		cmd.Dir = workingDirectory.(string)
 	}
 
+	stdinString := configuration["stdin"].(string)
+	stdinBase64 := configuration["stdin_base64"].(string)
+
+	if len(stdinString) != 0 || len(stdinBase64) != 0 {
+		if len(stdinString) != 0 && len(stdinBase64) != 0 {
+			return nil, errors.New("unexpected combination of `stdin` and `stdin_base` at command block")
+		}
+
+		var stdin bytes.Buffer
+
+		if len(stdinString) != 0 {
+			stdin.WriteString(stdinString)
+		} else {
+			result, err := base64.StdEncoding.DecodeString(stdinBase64)
+			if err != nil {
+				return nil, err
+			}
+			stdin.Write(result)
+		}
+
+		cmd.Stdin = &stdin
+	}
+
 	log.Printf("[DEBUG] Initialized command: {%s}\n", strings.Join(cmd.Args, ", "))
 
-	return cmd
+	return cmd, nil
 }
 
 func mergeSchemas(maps ...map[string]*schema.Schema) map[string]*schema.Schema {
@@ -182,18 +208,6 @@ func copyInputOutput(d *schema.ResourceData) error {
 }
 
 type PhasedContextFunc func(string, context.Context, *schema.ResourceData, interface{}) diag.Diagnostics
-
-func phasedFunc(phase string, action PhasedContextFunc) func(context.Context, *schema.ResourceData, interface{}) diag.Diagnostics {
-	return func(ctx context.Context, d *schema.ResourceData, i interface{}) diag.Diagnostics {
-		d.SetId("static")
-
-		if phase == d.Get("phase") {
-			return action(phase, ctx, d, i)
-		}
-
-		return diag.Diagnostics{}
-	}
-}
 
 func processResourceDeleteFunc(_ context.Context, _ *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	return diag.Diagnostics{}

@@ -5,19 +5,11 @@ import (
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"log"
 	"os/exec"
 )
 
-var processEndSchema = mergeSchemas(phasedSchema, inputOutputCopySchema, map[string]*schema.Schema{
-	"phase": {
-		Description:  "Defines the phase in which the command should be executed",
-		Type:         schema.TypeString,
-		ValidateFunc: validation.StringInSlice([]string{"plan", "apply"}, false),
-		Required:     true,
-		ForceNew:     true,
-	},
+var processEndSchema = mergeSchemas(inputOutputCopySchema, map[string]*schema.Schema{
 	"process_id": {
 		Description: "A ID of the executed process which is a output of the \"start_process\" data source.",
 		Type:        schema.TypeString,
@@ -27,7 +19,8 @@ var processEndSchema = mergeSchemas(phasedSchema, inputOutputCopySchema, map[str
 	"kill": {
 		Description: "If set to true, the process will be killed rather than waiting for the process to exit.",
 		Type:        schema.TypeBool,
-		Required:    true,
+		Default:     true,
+		Optional:    true,
 		ForceNew:    true,
 	},
 	"error": {
@@ -39,21 +32,26 @@ var processEndSchema = mergeSchemas(phasedSchema, inputOutputCopySchema, map[str
 
 func dataSourceProcessEnd() *schema.Resource {
 	return &schema.Resource{
-		//ReadContext: runProcessEnd,
+		ReadContext: func(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+			return runProcessEnd("dataSource", ctx, data, i)
+		},
 		Schema: processEndSchema,
 	}
 }
 
 func resourceProcessEnd() *schema.Resource {
 	return &schema.Resource{
-		ReadContext:   phasedFunc("plan", runProcessEnd),
-		CreateContext: phasedFunc("apply", runProcessEnd),
+		CreateContext: func(ctx context.Context, data *schema.ResourceData, i interface{}) diag.Diagnostics {
+			return runProcessEnd("resource", ctx, data, i)
+		},
 		DeleteContext: processResourceDeleteFunc,
 		Schema:        processEndSchema,
 	}
 }
 
-func runProcessEnd(_ string, _ context.Context, d *schema.ResourceData, _ interface{}) diag.Diagnostics {
+func runProcessEnd(kind string, _ context.Context, d *schema.ResourceData, _ interface{}) diag.Diagnostics {
+	d.SetId("static")
+
 	processId := d.Get("process_id").(string)
 	log.Printf("[DEBUG] Ending process %s\n", processId)
 
@@ -61,7 +59,7 @@ func runProcessEnd(_ string, _ context.Context, d *schema.ResourceData, _ interf
 		return diag.FromErr(err)
 	}
 
-	cmd := processes[processId]
+	cmd := processes[kind+processId]
 	if cmd == nil {
 		return diag.Diagnostics{{
 			Severity:      diag.Warning,
