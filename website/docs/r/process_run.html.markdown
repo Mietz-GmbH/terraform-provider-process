@@ -87,6 +87,8 @@ The following arguments are supported:
 * `retry_interval` - (Optional, Default: `500`) The number of milliseconds to wait between the tries
 * `timeout` - (Optional, Default: `500`) The maximum number of milliseconds after the process gets killed. The
 timeout can be disabled by settings this argument to `0`.
+* `fail_on_error` - (Optional, Default: `false`) If set to true, the resource will fail to create when the process
+exited an exit code not equal 0.
 * `inputs` - (Optional) Copied into `outputs` (documented on main page)
 
 The `command` object supports the following:

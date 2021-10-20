@@ -37,6 +37,13 @@ var processRunSchema = mergeSchemas(commandSchema, inputOutputCopySchema, map[st
 		ForceNew:     true,
 		ValidateFunc: validation.IntAtLeast(0),
 	},
+	"fail_on_error": {
+		Description: "If set to true, the resource will fail to create when the process exited an exit code not equal 0",
+		Type:        schema.TypeBool,
+		Default:     false,
+		Optional:    true,
+		ForceNew:    true,
+	},
 	"stdout": {
 		Description: "The output in stdout of the last process",
 		Type:        schema.TypeString,
@@ -84,6 +91,8 @@ func runProcessRun(_ context.Context, d *schema.ResourceData, _ interface{}) dia
 	retryInterval := time.Duration(d.Get("retry_interval").(int)) * time.Millisecond
 	log.Printf("[DEBUG] Run process with %d tries in a interval of %dms\n", tries, retryInterval/time.Millisecond)
 
+	failOnError := d.Get("fail_on_error").(bool)
+
 	for tries > 0 {
 		stdout, stderr, hasError, timedOut, err := doRunTry(d)
 		if err != nil {
@@ -108,6 +117,29 @@ func runProcessRun(_ context.Context, d *schema.ResourceData, _ interface{}) dia
 					Severity: diag.Warning,
 					Summary:  "Process timed out",
 					Detail:   fmt.Sprintf("The process took longer than %dms, so it was killed before ending.", d.Get("timeout")),
+				})
+			}
+			if hasError && failOnError {
+				trimmedStdout := strings.TrimSpace(stdout)
+				trimmedStderr := strings.TrimSpace(stderr)
+				var detail string
+
+				if len(trimmedStdout) != 0 {
+					if len(trimmedStderr) != 0 {
+						detail = trimmedStdout + "\n" + trimmedStderr
+					} else {
+						detail = trimmedStdout
+					}
+				} else if len(trimmedStderr) != 0 {
+					detail = trimmedStderr
+				} else {
+					detail = "The spawned process exited with an exit not not equal to 0"
+				}
+
+				diagnostics = append(diagnostics, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "Process failed to run",
+					Detail:   detail,
 				})
 			}
 			break
